@@ -1,0 +1,129 @@
+Parameters:
+  VPCName:
+    Description: Enter VPC Name
+    Type: String
+    Default: Secure VPC
+  VPCNetwork:
+    Type: String
+    Description: Enter VPC Network
+  PrivateNetwork:
+    Type: String
+    Description: Enter Private Subnet Network
+  PrivateAZ:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: Select Availability Zone for Private Subnet
+  PublicAZ:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: Select Availability Zone for Public Subnet
+  PublicNetwork:
+    Type: String
+    Description: Enter Public Subnet Network
+  PublicIPOnLaunch:
+    Type: String
+    AllowedValues: [true, false]
+    Default: false
+    Description: Select True if you want to auto assign public ip on Public Subnet Instances
+Resources:
+  SecureVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VPCNetwork
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Ref VPCName
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref PublicAZ
+      VpcId:
+        Ref: SecureVPC
+      CidrBlock: !Ref PublicNetwork
+      MapPublicIpOnLaunch: !Ref PublicIPOnLaunch
+      Tags:
+        - Key: Name
+          Value: SecureVPC Public Subnet 
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref PrivateAZ
+      VpcId: 
+        Ref: SecureVPC
+      CidrBlock: !Ref PrivateNetwork
+      Tags:
+        - Key: Name
+          Value: SecureVPC Private Subnet
+  SecureSubnetIG:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: SecureSubnetIG
+  AttachIGGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref SecureVPC
+      InternetGatewayId: !Ref SecureSubnetIG
+  SecureVPCPublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref SecureVPC
+      Tags:
+        - Key: Name
+          Value: SecureVPCPublicRouteTable
+  PublicRoute:
+   Type: AWS::EC2::Route
+   Properties:
+      RouteTableId:
+         Ref: SecureVPCPublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+         Ref: SecureSubnetIG
+  PublicSubnetRoutetableAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref SecureVPCPublicRouteTable
+  NATGateway:
+   Type: AWS::EC2::NatGateway
+   Properties:
+      AllocationId:
+         Fn::GetAtt:
+         - NATGatewayEIP
+         - AllocationId
+      SubnetId:
+         Ref: PublicSubnet
+      Tags:
+      - Key: Name
+        Value: NATGateway01
+  NATGatewayEIP:
+   DependsOn: AttachIGGateway
+   Type: AWS::EC2::EIP
+   Properties:
+      Domain: vpc
+  SecureVPCPrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref SecureVPC
+      Tags:
+        - Key: Name
+          Value: SecureVPCPrivateRouteTable
+  PrivateSubnetRoutetableAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet
+      RouteTableId: !Ref SecureVPCPrivateRouteTable
+  PrivateSubnetRoute:
+   Type: AWS::EC2::Route
+   Properties:
+      RouteTableId:
+         Ref: SecureVPCPrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId:
+         Ref: NATGateway
+  
+
+  
+  
+
+
